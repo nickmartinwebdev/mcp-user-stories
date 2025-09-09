@@ -1,6 +1,11 @@
 # User Stories Management System
 
-A comprehensive Rust library for managing user stories and acceptance criteria with CRUD operations, built with SQLx compile-time checked queries and designed for Cloudflare D1 database compatibility.
+[![CI](https://github.com/nickmartinwebdev/mcp-user-stories/workflows/CI/badge.svg)](https://github.com/nickmartinwebdev/mcp-user-stories/actions)
+[![Codecov](https://codecov.io/gh/nickmartinwebdev/mcp-user-stories/branch/main/graph/badge.svg)](https://codecov.io/gh/nickmartinwebdev/mcp-user-stories)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-1.75%2B-blue.svg)](https://www.rust-lang.org)
+
+A comprehensive Rust library for managing user stories and acceptance criteria with CRUD operations, built with SQLx compile-time checked queries and designed for multi-agent LLM systems and Cloudflare D1 database compatibility.
 
 ## Features
 

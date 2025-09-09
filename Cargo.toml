@@ -2,6 +2,15 @@
 name = "mcp-user-stories"
 version = "0.1.0"
 edition = "2021"
+description = "A comprehensive Rust library for managing user stories and acceptance criteria with CRUD operations, designed for multi-agent LLM systems"
+license = "MIT"
+repository = "https://github.com/nickmartinwebdev/mcp-user-stories"
+homepage = "https://github.com/nickmartinwebdev/mcp-user-stories"
+documentation = "https://docs.rs/mcp-user-stories"
+readme = "README.md"
+keywords = ["user-stories", "acceptance-criteria", "agile", "llm", "mcp"]
+categories = ["database", "development-tools", "api-bindings"]
+authors = ["Nicholas Martin <nicholasmartin@macbookair.t-com.me>"]
 
 [dependencies]
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid", "migrate", "macros"] }
