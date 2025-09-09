@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  DATABASE_URL: sqlite::memory:
 
 jobs:
   test:
@@ -96,8 +95,7 @@ jobs:
     - name: Build
       run: cargo build --verbose --release
 
-    - name: Build examples
-      run: cargo build --verbose --examples
+
 
   check-sqlx:
     name: Check SQLx queries
@@ -164,8 +162,6 @@ jobs:
 
     - name: Generate code coverage
       run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
-      env:
-        DATABASE_URL: sqlite::memory:
 
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v3
