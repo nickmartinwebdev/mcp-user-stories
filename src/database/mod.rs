@@ -14,7 +14,7 @@ pub async fn create_connection_pool(database_url: &str) -> Result<DbPool, sqlx::
     )
     .parent()
     {
-        std::fs::create_dir_all(parent).map_err(|e| sqlx::Error::Io(e.into()))?;
+        std::fs::create_dir_all(parent).map_err(sqlx::Error::Io)?;
     }
 
     let pool = SqlitePool::connect(database_url).await?;

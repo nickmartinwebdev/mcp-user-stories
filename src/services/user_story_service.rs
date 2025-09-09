@@ -38,11 +38,12 @@ impl UserStoryService {
         self.validate_create_request(&request)?;
 
         // Check if user story already exists
-        if let Some(_) = self
+        if self
             .repositories
             .user_stories
             .get_by_id(&request.id)
             .await?
+            .is_some()
         {
             return Err(UserStoryServiceError::AlreadyExists {
                 id: request.id.clone(),
@@ -77,11 +78,12 @@ impl UserStoryService {
         }
 
         // Check if user story already exists
-        if let Some(_) = self
+        if self
             .repositories
             .user_stories
             .get_by_id(&user_story_request.id)
             .await?
+            .is_some()
         {
             return Err(UserStoryServiceError::AlreadyExists {
                 id: user_story_request.id.clone(),

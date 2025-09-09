@@ -41,11 +41,12 @@ impl AcceptanceCriteriaService {
         self.validate_create_request(&request).await?;
 
         // Check if acceptance criteria already exists
-        if let Some(_) = self
+        if self
             .repositories
             .acceptance_criteria
             .get_by_id(&request.id)
             .await?
+            .is_some()
         {
             return Err(AcceptanceCriteriaServiceError::AlreadyExists {
                 id: request.id.clone(),
@@ -93,11 +94,12 @@ impl AcceptanceCriteriaService {
 
         // Check if any criteria already exist
         for request in &requests {
-            if let Some(_) = self
+            if self
                 .repositories
                 .acceptance_criteria
                 .get_by_id(&request.id)
                 .await?
+                .is_some()
             {
                 return Err(AcceptanceCriteriaServiceError::AlreadyExists {
                     id: request.id.clone(),
