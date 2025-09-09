@@ -13,6 +13,7 @@ use rmcp::{
     ServiceExt,
 };
 use serde::Deserialize;
+use serde_json::{Map, Value};
 use std::{borrow::Cow, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -185,6 +186,14 @@ impl ServerHandler for UserStoryServer {
         _request: Option<PaginatedRequestParam>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
+        // Helper function to create empty object schema
+        let empty_object_schema = || {
+            let mut schema = Map::new();
+            schema.insert("type".to_string(), Value::String("object".to_string()));
+            schema.insert("properties".to_string(), Value::Object(Map::new()));
+            schema
+        };
+
         Ok(ListToolsResult {
             tools: vec![
                 Tool {
@@ -218,13 +227,7 @@ impl ServerHandler for UserStoryServer {
                 Tool {
                     name: "get_all_user_stories".into(),
                     description: Some("Get all user stories in the system".into()),
-                    input_schema: std::sync::Arc::new(
-                        serde_json::to_value(schemars::schema_for!(()))
-                            .unwrap()
-                            .as_object()
-                            .unwrap()
-                            .clone(),
-                    ),
+                    input_schema: std::sync::Arc::new(empty_object_schema()),
                     annotations: None,
                     output_schema: None,
                 },
@@ -248,13 +251,7 @@ impl ServerHandler for UserStoryServer {
                     description: Some(
                         "Get statistics about user stories including counts and metrics".into(),
                     ),
-                    input_schema: std::sync::Arc::new(
-                        serde_json::to_value(schemars::schema_for!(()))
-                            .unwrap()
-                            .as_object()
-                            .unwrap()
-                            .clone(),
-                    ),
+                    input_schema: std::sync::Arc::new(empty_object_schema()),
                     annotations: None,
                     output_schema: None,
                 },
