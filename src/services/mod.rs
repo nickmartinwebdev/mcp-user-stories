@@ -10,6 +10,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct Services {
     pub user_stories: Arc<UserStoryService>,
+    #[allow(dead_code)]
     pub acceptance_criteria: Arc<AcceptanceCriteriaService>,
 }
 

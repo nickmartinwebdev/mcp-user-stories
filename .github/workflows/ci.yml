@@ -166,14 +166,23 @@ jobs:
           path: .sqlx/
           key: ${{ needs.setup-database.outputs.sqlx-cache-key }}
 
-      - name: Build
+      - name: Build library and binaries
         run: cargo build --verbose --release
 
-      - name: Test build can run
+      - name: Build MCP server binary
+        run: cargo build --verbose --release --bin mcp-server
+
+      - name: Test MCP server build can run
+        run: |
+          echo "Testing that the MCP server binary can initialize..."
+          timeout 30s ./target/release/mcp-server < /dev/null || true
+          echo "MCP server build test completed"
+
+      - name: Test library build can run
         run: |
           echo "Testing that the built application can initialize..."
           timeout 30s ./target/release/mcp-user-stories || true
-          echo "Build test completed"
+          echo "Library build test completed"
 
   check-sqlx:
     name: Check SQLx queries

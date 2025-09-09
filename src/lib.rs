@@ -50,6 +50,7 @@
 #![allow(dead_code)]
 
 pub mod database;
+pub mod mcp;
 pub mod models;
 pub mod repositories;
 pub mod services;

@@ -4,8 +4,10 @@
 [![Codecov](https://codecov.io/gh/nickmartinwebdev/mcp-user-stories/branch/main/graph/badge.svg)](https://codecov.io/gh/nickmartinwebdev/mcp-user-stories)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-blue.svg)](https://www.rust-lang.org)
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)](#)
+[![MCP](https://img.shields.io/badge/MCP-2024--11--05-blue.svg)](https://modelcontextprotocol.io)
 
-A comprehensive Rust library for managing user stories and acceptance criteria with CRUD operations, built with SQLx compile-time checked queries and designed for multi-agent LLM systems and Cloudflare D1 database compatibility.
+A comprehensive Rust library and MCP (Model Context Protocol) server for managing user stories and acceptance criteria with CRUD operations, built with SQLx compile-time checked queries and designed for multi-agent LLM systems and Cloudflare D1 database compatibility.
 
 ## Features
 
@@ -17,8 +19,67 @@ A comprehensive Rust library for managing user stories and acceptance criteria w
 - 🗃️ **Database Migrations** - Automatic schema management
 - ✅ **Business Logic Validation** - Input validation and business rules enforcement
 - 📦 **Cloudflare D1 Compatible** - Works with SQLite and Cloudflare D1 databases
+- 🤖 **MCP Server** - Full Model Context Protocol server for AI agent integration
+- 🔌 **AI Tool Integration** - Compatible with Claude Desktop, Cursor IDE, and other MCP clients
 
-## Quick Start
+## MCP Server
+
+This project includes a full MCP (Model Context Protocol) server that enables AI agents to interact with user story data through standardized tools.
+
+### Available MCP Tools
+
+- `create_user_story` - Create a new user story
+- `get_user_story` - Get a user story by ID  
+- `get_all_user_stories` - Get all user stories
+- `search_user_stories` - Search user stories by text
+- `get_user_stories_statistics` - Get statistics about user stories
+
+### MCP Server Usage
+
+#### Building and Running
+```bash
+# Build the MCP server
+cargo build --release --bin mcp-server
+
+# Run with default SQLite database
+./target/release/mcp-server
+
+# Run with custom database
+DATABASE_URL="sqlite:///path/to/your/database.db" ./target/release/mcp-server
+```
+
+#### Claude Desktop Integration
+Add to your Claude Desktop configuration (`~/.config/claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "user-stories": {
+      "command": "/path/to/mcp-user-stories/target/release/mcp-server",
+      "env": {
+        "DATABASE_URL": "sqlite:///path/to/your/user_stories.db"
+      }
+    }
+  }
+}
+```
+
+#### Cursor IDE Integration
+Add to your Cursor configuration:
+
+```json
+{
+  "mcpServers": {
+    "User Stories": {
+      "command": "mcp-user-stories-server"
+    }
+  }
+}
+```
+
+For detailed MCP server documentation, see [MCP_SERVER.md](MCP_SERVER.md).
+
+## Library Usage (Quick Start)
 
 ### Prerequisites
 

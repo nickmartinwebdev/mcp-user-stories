@@ -6,6 +6,7 @@ use crate::database::DbPool;
 use sqlx::migrate::MigrateError;
 
 /// Run all pending migrations
+#[allow(dead_code)]
 pub async fn migrate(pool: &DbPool) -> Result<(), MigrateError> {
     sqlx::migrate!("./migrations").run(pool).await
 }
