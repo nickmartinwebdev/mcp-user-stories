@@ -4,7 +4,7 @@
 *.pdb
 
 # Cargo
-# Cargo.lock - Include for CI reproducibility
+Cargo.lock
 
 # IDE
 .vscode/

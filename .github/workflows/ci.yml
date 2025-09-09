@@ -96,6 +96,9 @@ jobs:
     - name: Build
       run: cargo build --verbose --release
 
+    - name: Build examples
+      run: cargo build --verbose --examples
+
   check-sqlx:
     name: Check SQLx queries
     runs-on: ubuntu-latest
@@ -121,7 +124,9 @@ jobs:
       run: cargo install sqlx-cli --no-default-features --features sqlite
 
     - name: Check SQLx queries
-      run: cargo sqlx prepare --check --offline -- --all-targets --all-features
+      run: cargo sqlx prepare --check -- --all-targets --all-features
+      env:
+        DATABASE_URL: sqlite::memory:
 
   security:
     name: Security audit
