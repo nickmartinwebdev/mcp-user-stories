@@ -40,8 +40,8 @@ tarpaulin-report.html
 cobertura.xml
 lcov.info
 
-# SQLx
-.sqlx/
+# SQLx - Keep .sqlx/ for offline compilation, exclude local database files
+# .sqlx/ - DO NOT ignore this, it's needed for offline compilation
 # sqlx-data.json - Keep this for compile-time checking
 
 # Backup files

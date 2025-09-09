@@ -1,4 +1,4 @@
 {
-  "database_url": "sqlite::memory:",
-  "offline": false
+  "db_name": "SQLite",
+  "query": {}
 }

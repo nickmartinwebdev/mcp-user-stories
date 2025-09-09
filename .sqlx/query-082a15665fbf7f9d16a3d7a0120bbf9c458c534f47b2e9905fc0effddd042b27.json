@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            DELETE FROM acceptance_criteria\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "082a15665fbf7f9d16a3d7a0120bbf9c458c534f47b2e9905fc0effddd042b27"
+}

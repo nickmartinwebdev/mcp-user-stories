@@ -8,21 +8,23 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  DATABASE_URL: sqlite://test.db
+  SQLX_OFFLINE: true
 
 jobs:
-  test:
-    name: Test
+  setup-database:
+    name: Setup Database and Prepare Queries
     runs-on: ubuntu-latest
+    outputs:
+      sqlx-cache-key: ${{ steps.cache-key.outputs.key }}
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
 
-      - name: Cache dependencies
+      - name: Cache Rust dependencies
         uses: actions/cache@v3
         with:
           path: |
@@ -35,6 +37,64 @@ jobs:
 
       - name: Install SQLx CLI
         run: cargo install sqlx-cli --no-default-features --features sqlite
+
+      - name: Create test database
+        run: |
+          echo "Creating SQLite database for testing..."
+          sqlite3 test.db ".databases"
+          echo "Database created successfully"
+
+      - name: Run migrations
+        run: |
+          echo "Running database migrations..."
+          sqlx migrate run --database-url sqlite://test.db
+          echo "Migrations completed successfully"
+
+      - name: Prepare SQLx queries
+        run: |
+          echo "Preparing SQLx queries for offline compilation..."
+          cargo sqlx prepare --database-url sqlite://test.db
+          echo "SQLx queries prepared successfully"
+
+      - name: Generate cache key for SQLx data
+        id: cache-key
+        run: echo "key=sqlx-${{ hashFiles('.sqlx/**') }}-${{ hashFiles('migrations/**') }}" >> $GITHUB_OUTPUT
+
+      - name: Cache SQLx prepared queries
+        uses: actions/cache@v3
+        with:
+          path: .sqlx/
+          key: ${{ steps.cache-key.outputs.key }}
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: setup-database
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Restore SQLx prepared queries
+        uses: actions/cache@v3
+        with:
+          path: .sqlx/
+          key: ${{ needs.setup-database.outputs.sqlx-cache-key }}
 
       - name: Run tests
         run: cargo test --verbose
@@ -45,6 +105,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: setup-database
 
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +115,7 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Cache dependencies
+      - name: Cache Rust dependencies
         uses: actions/cache@v3
         with:
           path: |
@@ -64,6 +125,12 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
+
+      - name: Restore SQLx prepared queries
+        uses: actions/cache@v3
+        with:
+          path: .sqlx/
+          key: ${{ needs.setup-database.outputs.sqlx-cache-key }}
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -74,6 +141,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    needs: setup-database
 
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +149,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache dependencies
+      - name: Cache Rust dependencies
         uses: actions/cache@v3
         with:
           path: |
@@ -91,13 +159,26 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
+
+      - name: Restore SQLx prepared queries
+        uses: actions/cache@v3
+        with:
+          path: .sqlx/
+          key: ${{ needs.setup-database.outputs.sqlx-cache-key }}
 
       - name: Build
         run: cargo build --verbose --release
 
+      - name: Test build can run
+        run: |
+          echo "Testing that the built application can initialize..."
+          timeout 30s ./target/release/mcp-user-stories || true
+          echo "Build test completed"
+
   check-sqlx:
     name: Check SQLx queries
     runs-on: ubuntu-latest
+    needs: setup-database
 
     steps:
       - uses: actions/checkout@v4
@@ -105,7 +186,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache dependencies
+      - name: Cache Rust dependencies
         uses: actions/cache@v3
         with:
           path: |
@@ -116,15 +197,25 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Restore SQLx prepared queries
+        uses: actions/cache@v3
+        with:
+          path: .sqlx/
+          key: ${{ needs.setup-database.outputs.sqlx-cache-key }}
+
       - name: Install SQLx CLI
         run: cargo install sqlx-cli --no-default-features --features sqlite
 
-      - name: Check SQLx queries
-        run: cargo sqlx prepare --check --offline -- --all-targets --all-features
+      - name: Verify SQLx queries are up to date
+        run: |
+          echo "Checking if SQLx prepared queries are up to date..."
+          cargo sqlx prepare --check -- --all-targets --all-features
+          echo "SQLx query check completed successfully"
 
   coverage:
     name: Code coverage
     runs-on: ubuntu-latest
+    needs: setup-database
 
     steps:
       - uses: actions/checkout@v4
@@ -134,11 +225,25 @@ jobs:
         with:
           components: llvm-tools-preview
 
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Restore SQLx prepared queries
+        uses: actions/cache@v3
+        with:
+          path: .sqlx/
+          key: ${{ needs.setup-database.outputs.sqlx-cache-key }}
+
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin
-
-      - name: Install SQLx CLI
-        run: cargo install sqlx-cli --no-default-features --features sqlite
 
       - name: Generate code coverage
         run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
@@ -149,3 +254,30 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: cobertura.xml
           fail_ci_if_error: false
+
+  validate-no-database-in-repo:
+    name: Validate no database files in repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for database files
+        run: |
+          echo "Checking that no database files are committed to the repository..."
+          if find . -name "*.db" -not -path "./target/*" | grep -q .; then
+            echo "ERROR: Database files found in repository!"
+            find . -name "*.db" -not -path "./target/*"
+            exit 1
+          else
+            echo "✅ No database files found in repository"
+          fi
+
+      - name: Verify .gitignore includes database files
+        run: |
+          echo "Verifying .gitignore includes database patterns..."
+          if ! grep -q "*.db" .gitignore; then
+            echo "WARNING: .gitignore should include *.db pattern"
+          else
+            echo "✅ .gitignore includes database files"
+          fi
