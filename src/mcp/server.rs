@@ -1,52 +1,94 @@
 use crate::{
-    database::initialize_database, models::*, repositories::Repositories, services::Services,
+    database::initialize_database,
+    models::*,
+    repositories::Repositories,
+    services::{user_story_service::UserStoryStatistics, Services},
 };
 use rmcp::{
-    handler::server::{wrapper::Parameters, ServerHandler},
+    handler::server::{tool::ToolRouter, wrapper::Parameters, ServerHandler},
     model::{
-        CallToolRequestParam, CallToolResult, ErrorCode, ErrorData as McpError, ListToolsResult,
-        PaginatedRequestParam, Tool, *,
+        CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
     },
     schemars,
-    service::{RequestContext, RoleServer},
+    service::RoleServer,
+    tool, tool_router,
     transport::stdio,
-    ServiceExt,
+    ErrorData, ServiceExt,
 };
-use serde::Deserialize;
-use serde_json::{Map, Value};
-use std::{borrow::Cow, sync::Arc};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct UserStoryServer {
     services: Arc<Mutex<Services>>,
+    tool_router: ToolRouter<Self>,
 }
 
 // Request types for structured parameters
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CreateUserStoryParams {
-    #[schemars(description = "Unique identifier for the user story")]
+    /// Unique identifier for the user story
     pub id: String,
-    #[schemars(description = "Title of the user story")]
+    /// Title of the user story
     pub title: String,
-    #[schemars(description = "Description of the user story")]
+    /// Description of the user story
     pub description: String,
-    #[schemars(description = "Persona associated with the user story")]
+    /// Persona associated with the user story
     pub persona: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetUserStoryParams {
-    #[schemars(description = "ID of the user story to retrieve")]
+    /// ID of the user story to retrieve
     pub id: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct SearchUserStoriesParams {
-    #[schemars(description = "Search query text")]
+    /// Search query text
     pub query: String,
 }
 
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct UserStoryResponse {
+    pub id: String,
+    pub title: String,
+    pub description: String,
+    pub persona: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct StatisticsResponse {
+    pub total_stories: i64,
+    pub stories_by_persona: Vec<(String, i64)>,
+}
+
+impl From<UserStory> for UserStoryResponse {
+    fn from(story: UserStory) -> Self {
+        Self {
+            id: story.id,
+            title: story.title,
+            description: story.description,
+            persona: story.persona,
+            created_at: story.created_at.to_string(),
+            updated_at: story.updated_at.to_string(),
+        }
+    }
+}
+
+impl From<UserStoryStatistics> for StatisticsResponse {
+    fn from(stats: UserStoryStatistics) -> Self {
+        Self {
+            total_stories: stats.total_stories,
+            stories_by_persona: stats.stories_by_persona.into_iter().collect(),
+        }
+    }
+}
+
+#[tool_router]
 impl UserStoryServer {
     pub async fn new(database_url: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let pool = initialize_database(database_url).await?;
@@ -55,13 +97,15 @@ impl UserStoryServer {
 
         Ok(Self {
             services: Arc::new(Mutex::new(services)),
+            tool_router: Self::tool_router(),
         })
     }
 
+    #[tool(description = "Create a new user story with ID, title, description, and persona")]
     async fn create_user_story(
         &self,
         params: Parameters<CreateUserStoryParams>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<CallToolResult, ErrorData> {
         let request = CreateUserStoryRequest {
             id: params.0.id,
             title: params.0.title,
@@ -71,94 +115,95 @@ impl UserStoryServer {
 
         let services = self.services.lock().await;
         match services.user_stories.create(request).await {
-            Ok(story) => Ok(CallToolResult::success(vec![Content::text(
-                serde_json::to_string_pretty(&story).map_err(|e| McpError {
-                    code: ErrorCode(-32603),
-                    message: Cow::from(format!("Serialization error: {}", e)),
-                    data: None,
-                })?,
-            )])),
-            Err(e) => Err(McpError {
-                code: ErrorCode(-32000),
-                message: Cow::from(e.to_string()),
+            Ok(story) => {
+                let response: UserStoryResponse = story.into();
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&response).unwrap(),
+                )]))
+            }
+            Err(e) => Err(ErrorData {
+                code: rmcp::model::ErrorCode(-32000),
+                message: e.to_string().into(),
                 data: None,
             }),
         }
     }
 
+    #[tool(description = "Retrieve a user story by its ID")]
     async fn get_user_story(
         &self,
         params: Parameters<GetUserStoryParams>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<CallToolResult, ErrorData> {
         let services = self.services.lock().await;
         match services.user_stories.get_by_id(&params.0.id).await {
-            Ok(story) => Ok(CallToolResult::success(vec![Content::text(
-                serde_json::to_string_pretty(&story).map_err(|e| McpError {
-                    code: ErrorCode(-32603),
-                    message: Cow::from(format!("Serialization error: {}", e)),
-                    data: None,
-                })?,
-            )])),
-            Err(e) => Err(McpError {
-                code: ErrorCode(-32000),
-                message: Cow::from(e.to_string()),
+            Ok(story) => {
+                let response: UserStoryResponse = story.into();
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&response).unwrap(),
+                )]))
+            }
+            Err(e) => Err(ErrorData {
+                code: rmcp::model::ErrorCode(-32000),
+                message: e.to_string().into(),
                 data: None,
             }),
         }
     }
 
-    async fn get_all_user_stories(&self) -> Result<CallToolResult, McpError> {
+    #[tool(description = "Get all user stories in the system")]
+    async fn get_all_user_stories(&self) -> Result<CallToolResult, ErrorData> {
         let services = self.services.lock().await;
         match services.user_stories.get_all().await {
-            Ok(stories) => Ok(CallToolResult::success(vec![Content::text(
-                serde_json::to_string_pretty(&stories).map_err(|e| McpError {
-                    code: ErrorCode(-32603),
-                    message: Cow::from(format!("Serialization error: {}", e)),
-                    data: None,
-                })?,
-            )])),
-            Err(e) => Err(McpError {
-                code: ErrorCode(-32000),
-                message: Cow::from(e.to_string()),
+            Ok(stories) => {
+                let responses: Vec<UserStoryResponse> =
+                    stories.into_iter().map(|s| s.into()).collect();
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&responses).unwrap(),
+                )]))
+            }
+            Err(e) => Err(ErrorData {
+                code: rmcp::model::ErrorCode(-32000),
+                message: e.to_string().into(),
                 data: None,
             }),
         }
     }
 
+    #[tool(description = "Search user stories by text in title, description, or persona")]
     async fn search_user_stories(
         &self,
         params: Parameters<SearchUserStoriesParams>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<CallToolResult, ErrorData> {
         let services = self.services.lock().await;
         match services.user_stories.search(&params.0.query).await {
-            Ok(stories) => Ok(CallToolResult::success(vec![Content::text(
-                serde_json::to_string_pretty(&stories).map_err(|e| McpError {
-                    code: ErrorCode(-32603),
-                    message: Cow::from(format!("Serialization error: {}", e)),
-                    data: None,
-                })?,
-            )])),
-            Err(e) => Err(McpError {
-                code: ErrorCode(-32000),
-                message: Cow::from(e.to_string()),
+            Ok(stories) => {
+                let responses: Vec<UserStoryResponse> =
+                    stories.into_iter().map(|s| s.into()).collect();
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&responses).unwrap(),
+                )]))
+            }
+            Err(e) => Err(ErrorData {
+                code: rmcp::model::ErrorCode(-32000),
+                message: e.to_string().into(),
                 data: None,
             }),
         }
     }
 
-    async fn get_statistics(&self) -> Result<CallToolResult, McpError> {
+    #[tool(description = "Get statistics about user stories including counts and metrics")]
+    async fn get_user_stories_statistics(&self) -> Result<CallToolResult, ErrorData> {
         let services = self.services.lock().await;
         match services.user_stories.get_statistics().await {
-            Ok(stats) => Ok(CallToolResult::success(vec![Content::text(
-                serde_json::to_string_pretty(&stats).map_err(|e| McpError {
-                    code: ErrorCode(-32603),
-                    message: Cow::from(format!("Serialization error: {}", e)),
-                    data: None,
-                })?,
-            )])),
-            Err(e) => Err(McpError {
-                code: ErrorCode(-32000),
-                message: Cow::from(e.to_string()),
+            Ok(stats) => {
+                let response: StatisticsResponse = stats.into();
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&response).unwrap(),
+                )]))
+            }
+            Err(e) => Err(ErrorData {
+                code: rmcp::model::ErrorCode(-32000),
+                message: e.to_string().into(),
                 data: None,
             }),
         }
@@ -183,138 +228,31 @@ impl ServerHandler for UserStoryServer {
 
     async fn list_tools(
         &self,
-        _request: Option<PaginatedRequestParam>,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<ListToolsResult, McpError> {
-        // Helper function to create empty object schema
-        let empty_object_schema = || {
-            let mut schema = Map::new();
-            schema.insert("type".to_string(), Value::String("object".to_string()));
-            schema.insert("properties".to_string(), Value::Object(Map::new()));
-            schema
-        };
-
-        Ok(ListToolsResult {
-            tools: vec![
-                Tool {
-                    name: "create_user_story".into(),
-                    description: Some(
-                        "Create a new user story with ID, title, description, and persona".into(),
-                    ),
-                    input_schema: std::sync::Arc::new(
-                        serde_json::to_value(schemars::schema_for!(CreateUserStoryParams))
-                            .unwrap()
-                            .as_object()
-                            .unwrap()
-                            .clone(),
-                    ),
-                    annotations: None,
-                    output_schema: None,
-                },
-                Tool {
-                    name: "get_user_story".into(),
-                    description: Some("Retrieve a user story by its ID".into()),
-                    input_schema: std::sync::Arc::new(
-                        serde_json::to_value(schemars::schema_for!(GetUserStoryParams))
-                            .unwrap()
-                            .as_object()
-                            .unwrap()
-                            .clone(),
-                    ),
-                    annotations: None,
-                    output_schema: None,
-                },
-                Tool {
-                    name: "get_all_user_stories".into(),
-                    description: Some("Get all user stories in the system".into()),
-                    input_schema: std::sync::Arc::new(empty_object_schema()),
-                    annotations: None,
-                    output_schema: None,
-                },
-                Tool {
-                    name: "search_user_stories".into(),
-                    description: Some(
-                        "Search user stories by text in title, description, or persona".into(),
-                    ),
-                    input_schema: std::sync::Arc::new(
-                        serde_json::to_value(schemars::schema_for!(SearchUserStoriesParams))
-                            .unwrap()
-                            .as_object()
-                            .unwrap()
-                            .clone(),
-                    ),
-                    annotations: None,
-                    output_schema: None,
-                },
-                Tool {
-                    name: "get_user_stories_statistics".into(),
-                    description: Some(
-                        "Get statistics about user stories including counts and metrics".into(),
-                    ),
-                    input_schema: std::sync::Arc::new(empty_object_schema()),
-                    annotations: None,
-                    output_schema: None,
-                },
-            ],
+        _request: Option<rmcp::model::PaginatedRequestParam>,
+        _context: rmcp::service::RequestContext<RoleServer>,
+    ) -> Result<rmcp::model::ListToolsResult, ErrorData> {
+        Ok(rmcp::model::ListToolsResult {
+            tools: self.tool_router.list_all(),
             next_cursor: None,
         })
     }
 
     async fn call_tool(
         &self,
-        request: CallToolRequestParam,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, McpError> {
-        match request.name.as_ref() {
-            "create_user_story" => {
-                let params: CreateUserStoryParams = serde_json::from_value(
-                    serde_json::Value::Object(request.arguments.unwrap_or_default()),
-                )
-                .map_err(|e| McpError {
-                    code: ErrorCode(-32602),
-                    message: Cow::from(format!("Invalid parameters: {}", e)),
-                    data: None,
-                })?;
-                self.create_user_story(Parameters(params)).await
-            }
-            "get_user_story" => {
-                let params: GetUserStoryParams = serde_json::from_value(serde_json::Value::Object(
-                    request.arguments.unwrap_or_default(),
-                ))
-                .map_err(|e| McpError {
-                    code: ErrorCode(-32602),
-                    message: Cow::from(format!("Invalid parameters: {}", e)),
-                    data: None,
-                })?;
-                self.get_user_story(Parameters(params)).await
-            }
-            "get_all_user_stories" => self.get_all_user_stories().await,
-            "search_user_stories" => {
-                let params: SearchUserStoriesParams = serde_json::from_value(
-                    serde_json::Value::Object(request.arguments.unwrap_or_default()),
-                )
-                .map_err(|e| McpError {
-                    code: ErrorCode(-32602),
-                    message: Cow::from(format!("Invalid parameters: {}", e)),
-                    data: None,
-                })?;
-                self.search_user_stories(Parameters(params)).await
-            }
-            "get_user_stories_statistics" => self.get_statistics().await,
-            _ => Err(McpError {
-                code: ErrorCode(-32601),
-                message: Cow::from("Method not found"),
-                data: None,
-            }),
-        }
+        request: rmcp::model::CallToolRequestParam,
+        context: rmcp::service::RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        use rmcp::handler::server::tool::ToolCallContext;
+        let ctx = ToolCallContext::new(self, request, context);
+        self.tool_router.call(ctx).await
     }
 }
 
-// Main server runner function using rmcp
+/// Main server runner function using rmcp
 pub async fn run_server(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
     let server = UserStoryServer::new(database_url).await?;
 
-    eprintln!("User Stories MCP Server started with rmcp");
+    eprintln!("User Stories MCP Server started");
     eprintln!("Database: {}", database_url);
     eprintln!("Available tools:");
     eprintln!("  - create_user_story");

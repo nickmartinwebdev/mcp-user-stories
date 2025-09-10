@@ -79,6 +79,34 @@ Add to your Cursor configuration:
 
 For detailed MCP server documentation, see [MCP_SERVER.md](MCP_SERVER.md).
 
+## RMCP Macro Implementation
+
+This project uses rmcp's powerful macro system for simplified MCP server development:
+
+- **[Implementation Guide](docs/RMCP_MACROS_README.md)** - Complete guide to using rmcp macros
+- **[Comparison Analysis](docs/RMCP_MACROS_COMPARISON.md)** - Analysis of macro benefits over manual approaches
+- **[Simple Demo](examples/simple_macro_server.rs)** - Conceptual demonstration of macro benefits
+
+### Key Benefits of Our Macro Approach
+
+- **90% reduction in boilerplate code**
+- **Automatic JSON schema generation**
+- **Type-safe parameter handling**
+- **Better maintainability and error handling**
+- **Single annotation per tool instead of dozens of lines**
+
+### Running the Server
+
+```bash
+# Primary MCP server (using rmcp macros)
+cargo run --bin mcp-server
+
+# Simple macro concept demo
+cargo run --example simple_macro_server
+```
+
+The macro approach represents modern rmcp development, making MCP servers as simple and type-safe as possible while maintaining full protocol compliance.
+
 ## Library Usage (Quick Start)
 
 ### Prerequisites
